@@ -5,7 +5,8 @@ function process_images
     % used with this project. It goes through all of the training
     % images in the NAZCA_SCANNED_GEMS subdirectory, identifying
     % all shapes that look like a rock, and attempts to create a
-    % 672x672 image of that rock. This is so that the rock can be
+    % 672x672 image of that rock. It then writes that cropped image in
+    % the OUTPUT folder. This is so that the rock can be
     % used with the resnet50() function in the main project itself.
     %
     % Author: Lily O'Carroll <lso2973>
@@ -26,7 +27,10 @@ function process_images
     filelist = dir(fullfile(image_dir, '**\*.jpg'));
     % Remove everything that isn't an image (mainly directories)
     filelist = filelist(~[filelist.isdir]);
-    
+
+    %%%for testing
+    % figure();
+
     % Go through all of the images in our testing set.
     %%% Starting in R2024a this specific line of code will throw
     %%% a warning, despite it working just fine.
@@ -37,19 +41,48 @@ function process_images
             + filelist(img).name;
         im_preprocessed = im2double(imread(gem_location));
         im_gray = rgb2gray(im_preprocessed);
-        im_bw = imbinarize(im_gray);
-
+        im_adapt_hist = adapthisteq(im_gray);
+        threshold = graythresh(im_adapt_hist);
+        im_bw = imbinarize(im_gray, threshold);
+        disk_N = strel("disk", 5);
+        im_bw = imerode(im_bw, disk_N);
+        
+        %Since some rocks will be classified as foreground and some as
+        %background we need to find the largest area and assume thats the
+        %background
+        [im_connected_components, number_of_cc] = bwlabel(~im_bw, 4);
+        max_pixels = 0;
+        max_component = -1;
+        for this_component = 0 : number_of_cc
+            binary_image = (im_connected_components == this_component);
+            n_pix = sum(binary_image(:));
+            if (n_pix > max_pixels)
+                max_pixels = n_pix;
+                max_component = this_component;
+            end
+        end
+        if (max_component == 0)
+            im_bw = ~ im_bw;
+        end
+        %%%for testing
+        % subplot(1,2,1);
+        % imagesc(im_bw);
+        
+        %pause(0.5);
         % Set up disks for dilation (disks A, C) and
         % a disk for erosion (disk B).
-        disk_A = strel("disk", 5);
-        disk_B = strel("disk", 10);
+        disk_A = strel("disk", 60);
+        disk_B = strel("disk", 60);
         disk_C = strel("disk", 6);
         
         % Clean up the image the best we can
         im_dilated = imdilate(im_bw, disk_A);
         im_eroded = imerode(im_dilated, disk_B);
         im_binary = imdilate(im_eroded, disk_C);
-        
+
+        %%%for testing
+        %subplot(1,2,1);
+        %imagesc(im_binary);
         % Do connected component analysis to get the region where
         % the rock is.
         [im_connected_components, number_of_cc] = bwlabel(~im_binary, 4);
@@ -78,6 +111,7 @@ function process_images
                     seccond_highest_num_of_pixels == 0)
                 % Set the highest number of pixels, and
                 % the "bounding box" points
+                %also store the highest and 2nd highest for use later
                 if(n_pix > highest_num_of_pixels)
                     seccond_highest_num_of_pixels = highest_num_of_pixels;
                     highest_num_of_pixels = n_pix;
@@ -106,6 +140,10 @@ function process_images
         % Forcibly resize our image to be 224x224
         % for use with resnetNetwork
         resized_final_image = imresize(final_image, [224 224]);
+        %%%For testing
+        % subplot(1,2,2);
+        % imagesc(resized_final_image);
+        % drawnow;
 
         % Write the final image to disk, in
         % the new directory (so that the original
