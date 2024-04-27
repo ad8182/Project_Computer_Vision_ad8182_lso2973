@@ -28,13 +28,11 @@ function process_images
     % Remove everything that isn't an image (mainly directories)
     filelist = filelist(~[filelist.isdir]);
 
-    %%%for testing
-    % figure();
-
     % Go through all of the images in our testing set.
     %%% Starting in R2024a this specific line of code will throw
     %%% a warning, despite it working just fine.
     for img = 1 : size(filelist)
+
         % Get the filename of the image, read it in,
         % and convert it into a binarized image.
         gem_location = "" + filelist(img).folder + '\' ...
@@ -47,9 +45,9 @@ function process_images
         disk_N = strel("disk", 5);
         im_bw = imerode(im_bw, disk_N);
         
-        %Since some rocks will be classified as foreground and some as
-        %background we need to find the largest area and assume thats the
-        %background
+        % Since some rocks will be classified as foreground and some as
+        % background, we need to find the largest area and assume that's 
+        % the background.
         [im_connected_components, number_of_cc] = bwlabel(~im_bw, 4);
         max_pixels = 0;
         max_component = -1;
@@ -64,11 +62,7 @@ function process_images
         if (max_component == 0)
             im_bw = ~ im_bw;
         end
-        %%%for testing
-        % subplot(1,2,1);
-        % imagesc(im_bw);
-        
-        %pause(0.5);
+
         % Set up disks for dilation (disks A, C) and
         % a disk for erosion (disk B).
         disk_A = strel("disk", 60);
@@ -80,9 +74,6 @@ function process_images
         im_eroded = imerode(im_dilated, disk_B);
         im_binary = imdilate(im_eroded, disk_C);
 
-        %%%for testing
-        %subplot(1,2,1);
-        %imagesc(im_binary);
         % Do connected component analysis to get the region where
         % the rock is.
         [im_connected_components, number_of_cc] = bwlabel(~im_binary, 4);
@@ -140,10 +131,6 @@ function process_images
         % Forcibly resize our image to be 224x224
         % for use with resnetNetwork
         resized_final_image = imresize(final_image, [224 224]);
-        %%%For testing
-        % subplot(1,2,2);
-        % imagesc(resized_final_image);
-        % drawnow;
 
         % Write the final image to disk, in
         % the new directory (so that the original
